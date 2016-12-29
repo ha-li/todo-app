@@ -29,6 +29,10 @@ jar {
     }
 }
 
+
+task wrapper (type: Wrapper) {
+   gradleVersion = '1.7'
+}
 // using a non-conventional directory structure, so I
 // have to tell gradle via configuration
 /* sourceSets {
