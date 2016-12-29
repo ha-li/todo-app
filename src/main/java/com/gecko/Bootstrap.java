@@ -2,6 +2,7 @@ package com.gecko;
 
 import com.gecko.io.CommandLineInput;
 import com.gecko.io.CommandLineInputHandler;
+import org.apache.commons.lang.CharUtils;
 
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
@@ -20,9 +21,9 @@ public class Bootstrap {
 
          commandLineInputHandler.printOptions ();
          String input = commandLineInputHandler.readInput ();
-         //command = CharUtils.toChar (intput, DEFAULT_INPUT);
-         char[] inputs = input.length() == 1 ? input.toCharArray () : new char[] {DEFAULT_INPUT};
-         command  = inputs[0];
+         command = CharUtils.toChar (input, DEFAULT_INPUT);
+         //char[] inputs = input.length() == 1 ? input.toCharArray () : new char[] {DEFAULT_INPUT};
+         //command  = inputs[0];
 
          try {
             commandLineInput  = CommandLineInput.getCommandLineInputForInput (command);
