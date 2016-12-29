@@ -2,9 +2,7 @@ package com.gecko;
 
 import com.gecko.io.CommandLineInput;
 import com.gecko.io.CommandLineInputHandler;
-import org.apache.commons.lang.CharUtils;
-
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import org.apache.commons.lang3.CharUtils;
 
 /**
  * Created by hlieu on 12/27/16.

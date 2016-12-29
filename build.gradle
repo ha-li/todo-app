@@ -1,5 +1,7 @@
 //apply plugin: 'idea'
 apply plugin: 'java'
+apply plugin: 'war'
+apply plugin: 'jetty'
 
 sourceCompatibility = 1.7
 
@@ -10,8 +12,10 @@ repositories {
 
 dependencies {
     //compile('org.codehaus.groovy:groovy-all:2.4.0')
-    compile('commons-lang:commons-lang:2.4')
-    testCompile ('junit:junit:4.8.2')
+   providedCompile 'javax.servlet:servlet-api:2.5'
+   runtime 'javax.servlet:jstl:1.1.2'
+   compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.1'
+   testCompile ('junit:junit:4.8.2')
 }
 
 jar {
@@ -25,6 +29,8 @@ jar {
     }
 }
 
+// using a non-conventional directory structure, so I
+// have to tell gradle via configuration
 /* sourceSets {
     main {
         java {
