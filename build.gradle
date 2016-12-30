@@ -1,7 +1,30 @@
 //apply plugin: 'idea'
 apply plugin: 'java'
+
+// add support for war, this will also bring in the java plugin
+// so the above line was not needed
 apply plugin: 'war'
-apply plugin: 'jetty'
+//apply plugin: 'jetty'
+
+// the the description property of Project object
+setDescription "ninja project description"
+
+// $name is a project property - the current projects name
+// $description was set above
+println "Description of this awesome project : $name " + project.description
+
+// adding a custom property
+ext {
+   someOtherProp = 123
+}
+println "Some other prop $someOtherProp"
+
+// this is defined in this project's gradle.properties
+println "$example_hao_property"
+
+// this is set in $HOME/.gradle/gradle.properties
+println "$my_best_property"
+
 
 sourceCompatibility = 1.7
 
@@ -9,8 +32,8 @@ repositories {
     mavenCentral()
 }
 
-
 dependencies {
+   // define the dependencies
     //compile('org.codehaus.groovy:groovy-all:2.4.0')
    providedCompile 'javax.servlet:servlet-api:2.5'
    runtime 'javax.servlet:jstl:1.1.2'
@@ -18,8 +41,39 @@ dependencies {
    testCompile ('junit:junit:4.8.2')
 }
 
+version = "0.0.1"
+
+// this now shows up in the gradle view to the right
+// under 'other' and you can double click to execute it
+task printVersion {
+   // these two properties of task group the task printVersion
+   // and provide a description of the task.
+   // both are used when running the Task 'tasks'
+   // which displays the tasks this gradle file supports
+   group = 'versioning'
+   description = 'Prints project version.'
+
+   // gradle provides a default logger based on slf4j library
+   doLast {
+      logger.quiet "Version: $version"
+   }
+
+   doFirst {
+      println "this is first"
+   }
+}
+// we can add the printVersion like this
+// so now this is the first, and the doFirst
+// defined above is 2nd
+printVersion.doFirst { println "First action" }
+
+// and this is the last, and the doLast
+// above is 2nd last
+printVersion << { println "Doing last action" }
+
+
 jar {
-    version = "0.0.1"
+
     baseName='todo-app'
 
     manifest {
@@ -29,10 +83,11 @@ jar {
     }
 }
 
-
 task wrapper (type: Wrapper) {
-   gradleVersion = '3.2'
+   gradleVersion = '2.8'
 }
+
+// printVersion ()
 // using a non-conventional directory structure, so I
 // have to tell gradle via configuration
 /* sourceSets {
