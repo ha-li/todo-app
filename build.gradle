@@ -7,25 +7,56 @@ apply plugin: 'war'
 //apply plugin: 'jetty'
 
 // the the description property of Project object
-setDescription "ninja project description"
+description = "My Gradle Learning Project"
 
 // $name is a project property - the current projects name
 // $description was set above
-println "Description of this awesome project : $name " + project.description
+println "Project: $name - $description"
 
-// adding a custom property
+// adding a custom property (versionfile) in the 'ext'ernal space
 ext {
-   someOtherProp = 123
+   // define a property in the external space that holds the version propertes
+   versionfile = file ('version.properties')
 }
-println "Some other prop $someOtherProp"
 
-// this is defined in this project's gradle.properties
-println "$example_hao_property"
+// the class ProjectVersion - gets used below
+class ProjectVersion {
+   Integer major
+   Integer minor
+   Boolean release
 
-// this is set in $HOME/.gradle/gradle.properties
-println "$my_best_property"
+   ProjectVersion (Integer major, Integer minor, Boolean release) {
+      this.major = major
+      this.minor = minor
+      this.release = release;
+   }
 
+   ProjectVersion (Integer major, Integer minor) {
+      this(major, minor, Boolean.FALSE)
+   }
 
+   // this method needs to be defined
+   @Override
+   String toString () {
+      "$major.$minor${release ? '':'-SNAPSHOT'}"
+   }
+}
+
+// not using this, but shows how to external properties
+task disable {
+   doFirst {
+      // this property comes from $MODDIR/gradle.properties
+      println "$example_hao_property"
+   }
+
+   doLast {
+      // this is set in $HOME/.gradle/gradle.properties
+      println "$my_best_property"
+   }
+}
+
+// property of Project object that this script represents
+// java jdk version
 sourceCompatibility = 1.7
 
 repositories {
@@ -41,18 +72,34 @@ dependencies {
    testCompile ('junit:junit:4.8.2')
 }
 
-version = "0.0.1"
+// create my own custom task
+task first {
+   // with its own action
+   doLast {
+      println "first"
+   }
+}
 
-// this now shows up in the gradle view to the right
-// under 'other' and you can double click to execute it
-task printVersion {
-   // these two properties of task group the task printVersion
-   // and provide a description of the task.
-   // both are used when running the Task 'tasks'
+// define 2 more tasks in gradle's weird syntax, but the <<
+// as a representation of doLast is going away in Gradle 5
+task second << { println "second" }
+task third << { println "third" }
+
+// the next few blocks show how to specify order in task execution
+third.dependsOn ('printVersion')
+
+// task printVersion now shows up in the gradle view to the right
+// under 'versioning' grouping and you can double click to execute it
+// Also has dependency on first and second
+task printVersion (dependsOn: [second, first]){
+   // these two properties of Task object will group (this task) printVersion
+   // and provide a it a description.
+   // both are used when running 'gradle tasks'
    // which displays the tasks this gradle file supports
    group = 'versioning'
-   description = 'Prints project version.'
+   description = 'Prints the project version.'
 
+   // every task has 2 built in actions doFirst and doLast
    doFirst {
       println "this is actually 2nd"
    }
@@ -63,7 +110,7 @@ task printVersion {
    }
 
 }
-// we can add the printVersion like this
+// we can add more actions to printVersion like this
 // so now this is the first, and the doFirst
 // defined above is 2nd
 printVersion.doFirst { println "This is the new first action" }
@@ -72,9 +119,23 @@ printVersion.doFirst { println "This is the new first action" }
 // above is 2nd last
 printVersion << { println "Doing the new last action" }
 
+// task that prints the date and time
+task time {
+   // since there is not group property set, time will fall into 'other' tasks
+   doLast {
+      println new Date();
+   }
+}
+
+// use finalizedBy to set up such that running printVersion
+// will auto trigger time, after printVersion is done
+printVersion.finalizedBy time
+printVersion.dependsOn('loadVersion')
+
+// built in version property
+version = new ProjectVersion(0, 1)
 
 jar {
-
     baseName='todo-app'
 
     manifest {
@@ -88,9 +149,77 @@ task wrapper (type: Wrapper) {
    gradleVersion = '2.8'
 }
 
-// printVersion ()
-// using a non-conventional directory structure, so I
-// have to tell gradle via configuration
+
+
+// define a method readVersion that returns ProjectVersion object
+ProjectVersion readVersion () {
+   logger.quiet 'Reading the version file.'
+   if ( !versionfile.exists ()) {
+      throw new GradleException ("Required version file doe not exist. $versionfile.canonicalPath")
+   }
+
+   Properties versionProperties = new Properties();
+   versionfile.withInputStream { stream ->
+      versionProperties.load(stream)
+   }
+
+   new ProjectVersion(versionProperties.major.toInteger(),
+           versionProperties.minor.toInteger(),
+           versionProperties.release.toBoolean())
+}
+
+// even though readVersion returns ProjectVersion object,
+// gradle will use the objects toString method when assigning project.version
+task loadVersion {
+   project.version = readVersion()
+}
+
+
+
+// a custom task that makes a release version of the build
+// you can do things like deploy to production server here, etc
+task releaseVersion {
+   group = 'versioning'
+   description = 'Make a release version of the project'
+
+   // define the input and output - these get set up during
+   // configuration phase, looks like gradle keeps a copy of the
+   // state in the dir $MODDIR/.gradle/$GRADLE_VERSION/
+   // and these get compared between builds to see what
+   // has changed
+   inputs.property 'release',  version.release
+   outputs.file versionfile
+
+   doFirst {
+      println "first in releaseVersions"
+   }
+
+   println "doing something in the middle"
+
+   // actions - get done at task execution phase, only if the inputs
+   // and outputs are not up to date
+   doLast {
+      // use the ant task to do the dirty work
+      ant.propertyfile(file: versionfile) {
+         entry(key: 'release', type: 'string', operation: '=', value: 'true')
+      }
+   }
+}
+
+// a test task - shows that dependsOn is a method that can be used
+// in the task's configuration phase to config a task's dependency
+task doNothing {
+   group = 'my-own-group'
+   description = 'messing around'
+   // you can also specify the dependsOn through a method invocations
+   dependsOn (['releaseVersion', 'time'])
+
+   doLast {
+      println 'funky-com-a-dean'
+   }
+}
+
+// non-conventional directory structure -> tell gradle via configuration
 /* sourceSets {
     main {
         java {
