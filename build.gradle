@@ -42,22 +42,32 @@ class ProjectVersion {
    }
 }
 
-// not using this, but shows how to external properties
-task disable {
-   doFirst {
-      // this property comes from $MODDIR/gradle.properties
-      println "$example_hao_property"
+// define a method readVersion that returns ProjectVersion object
+ProjectVersion readVersion () {
+   logger.quiet 'Reading the version file.'
+   if ( !versionfile.exists ()) {
+      throw new GradleException ("Required version file doe not exist. $versionfile.canonicalPath")
    }
 
-   doLast {
-      // this is set in $HOME/.gradle/gradle.properties
-      println "$my_best_property"
+   Properties versionProperties = new Properties();
+   versionfile.withInputStream { stream ->
+      versionProperties.load(stream)
    }
+
+   new ProjectVersion(versionProperties.major.toInteger(),
+           versionProperties.minor.toInteger(),
+           versionProperties.release.toBoolean())
+}
+
+// even though readVersion returns ProjectVersion object,
+// gradle will use the objects toString method when assigning project.version
+task loadVersion {
+   project.version = readVersion()
 }
 
 // property of Project object that this script represents
 // java jdk version
-sourceCompatibility = 1.7
+// sourceCompatibility = 1.7
 
 repositories {
     mavenCentral()
@@ -108,7 +118,6 @@ task printVersion (dependsOn: [second, first]){
    doLast {
       logger.quiet "2nd last Version: $version"
    }
-
 }
 // we can add more actions to printVersion like this
 // so now this is the first, and the doFirst
@@ -148,33 +157,6 @@ jar {
 task wrapper (type: Wrapper) {
    gradleVersion = '2.8'
 }
-
-
-
-// define a method readVersion that returns ProjectVersion object
-ProjectVersion readVersion () {
-   logger.quiet 'Reading the version file.'
-   if ( !versionfile.exists ()) {
-      throw new GradleException ("Required version file doe not exist. $versionfile.canonicalPath")
-   }
-
-   Properties versionProperties = new Properties();
-   versionfile.withInputStream { stream ->
-      versionProperties.load(stream)
-   }
-
-   new ProjectVersion(versionProperties.major.toInteger(),
-           versionProperties.minor.toInteger(),
-           versionProperties.release.toBoolean())
-}
-
-// even though readVersion returns ProjectVersion object,
-// gradle will use the objects toString method when assigning project.version
-task loadVersion {
-   project.version = readVersion()
-}
-
-
 
 // a custom task that makes a release version of the build
 // you can do things like deploy to production server here, etc
@@ -216,6 +198,19 @@ task doNothing {
 
    doLast {
       println 'funky-com-a-dean'
+   }
+}
+
+// not using this, but shows how to external properties
+task disable {
+   doFirst {
+      // this property comes from $MODDIR/gradle.properties
+      println "$example_hao_property"
+   }
+
+   doLast {
+      // this is set in $HOME/.gradle/gradle.properties
+      println "$my_best_property"
    }
 }
 
