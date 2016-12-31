@@ -53,23 +53,24 @@ task printVersion {
    group = 'versioning'
    description = 'Prints project version.'
 
-   // gradle provides a default logger based on slf4j library
-   doLast {
-      logger.quiet "Version: $version"
+   doFirst {
+      println "this is actually 2nd"
    }
 
-   doFirst {
-      println "this is first"
+   // gradle provides a default logger based on slf4j library
+   doLast {
+      logger.quiet "2nd last Version: $version"
    }
+
 }
 // we can add the printVersion like this
 // so now this is the first, and the doFirst
 // defined above is 2nd
-printVersion.doFirst { println "First action" }
+printVersion.doFirst { println "This is the new first action" }
 
 // and this is the last, and the doLast
 // above is 2nd last
-printVersion << { println "Doing last action" }
+printVersion << { println "Doing the new last action" }
 
 
 jar {
