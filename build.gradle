@@ -1,10 +1,15 @@
+import dsl.ProjectVersion
+import dsl.ReleaseVersionTask
+
 //apply plugin: 'idea'
+// activates groovy code
+apply plugin: 'groovy'
 apply plugin: 'java'
 
 // add support for war, this will also bring in the java plugin
 // so the above line was not needed
 apply plugin: 'war'
-//apply plugin: 'jetty'
+
 
 // the the description property of Project object
 description = "My Gradle Learning Project"
@@ -13,14 +18,28 @@ description = "My Gradle Learning Project"
 // $description was set above
 println "Project: $name - $description"
 
+
+
 // adding a custom property (versionfile) in the 'ext'ernal space
 ext {
    // define a property in the external space that holds the version propertes
    versionfile = file ('version.properties')
+   // source dir for gradle custom classes used here
+   srcDirName = 'src/main/groovy'
+}
+
+dependencies {
+   // define the dependencies
+   compile gradleApi()
+   compile localGroovy()
+   providedCompile 'javax.servlet:servlet-api:2.5'
+   runtime 'javax.servlet:jstl:1.1.2'
+   compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.1'
+   testCompile ('junit:junit:4.8.2')
 }
 
 // the class ProjectVersion - gets used below
-class ProjectVersion {
+/* class ProjectVersion {
    Integer major
    Integer minor
    Boolean release
@@ -40,7 +59,7 @@ class ProjectVersion {
    String toString () {
       "$major.$minor${release ? '':'-SNAPSHOT'}"
    }
-}
+} */
 
 // define a method readVersion that returns ProjectVersion object
 ProjectVersion readVersion () {
@@ -73,14 +92,7 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-   // define the dependencies
-    //compile('org.codehaus.groovy:groovy-all:2.4.0')
-   providedCompile 'javax.servlet:servlet-api:2.5'
-   runtime 'javax.servlet:jstl:1.1.2'
-   compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.1'
-   testCompile ('junit:junit:4.8.2')
-}
+
 
 // create my own custom task
 task first {
@@ -139,10 +151,10 @@ task time {
 // use finalizedBy to set up such that running printVersion
 // will auto trigger time, after printVersion is done
 printVersion.finalizedBy time
-printVersion.dependsOn('loadVersion')
+//printVersion.dependsOn('loadVersion')
 
 // built in version property
-version = new ProjectVersion(0, 1)
+//version = new ProjectVersion(0, 1)
 
 jar {
     baseName='todo-app'
@@ -155,7 +167,7 @@ jar {
 }
 
 task wrapper (type: Wrapper) {
-   gradleVersion = '2.8'
+   gradleVersion = '2.7'
 }
 
 // a custom task that makes a release version of the build
@@ -169,8 +181,15 @@ task releaseVersion {
    // state in the dir $MODDIR/.gradle/$GRADLE_VERSION/
    // and these get compared between builds to see what
    // has changed
+   // Inputs.property (String name, Object val) suggests
+   // that a map holds the properties
    inputs.property 'release',  version.release
    outputs.file versionfile
+
+   // can also execute a method on the outputs
+   /* outputs.upToDateWhen {
+      true
+   } */
 
    doFirst {
       println "first in releaseVersions"
@@ -211,6 +230,89 @@ task disable {
    doLast {
       // this is set in $HOME/.gradle/gradle.properties
       println "$my_best_property"
+   }
+}
+
+
+// this is now moved to buildSrc
+/*class ReleaseVersionTask extends DefaultTask {
+   @Input Boolean release
+   @OutputFile File destFile
+
+   ReleaseVersionTask () {
+      group = 'versioning'
+      description = 'Makes project a release version'
+   }
+   @TaskAction
+   void start () {
+      project.version.release = true
+      ant.propertyfile(file: destFile) {
+         entry (key: 'release', type: 'string', operation: '=', value: 'true')
+      }
+   }
+}*/
+
+// create a task that uses the custom task,
+// the input to the task is type
+task makeReleaseVersion (type: ReleaseVersionTask) {
+   // then assign the properties of the custom task
+   // to the properties in the gradle file
+   release = version.release
+   destFile = versionfile
+}
+
+task createDistribution (type: Zip, dependsOn: makeReleaseVersion) {
+   from war.outputs.files
+
+   from (sourceSets*.allSource) {
+      into 'src'
+   }
+
+   from (rootDir) {
+      include versionfile.name
+   }
+}
+
+// use the Copy Task to back up the release build
+task backupReleaseVersion (type: Copy, dependsOn: createDistribution) {
+   from ('build/distributions')
+   destinationDir = new File('build/backup')
+
+}
+
+task incrementMajorVersion {
+   group = 'versioning'
+   description = 'Increments project major version'
+
+   doLast {
+      String current = version.toString()
+      ++version.major
+      String newVersion = version.toString()
+      logger.quiet "Incrementing major project version: $current -> $newVersion"
+
+      ant.propertyfile(file: versionfile) {
+         entry(key: 'major', type: 'int', operation: '+', value: 1)
+      }
+   }
+}
+
+task incrementMinorVersion {
+   group = 'versioning'
+   description = 'Increments project minor version'
+
+
+   // if you don't put into into a doFirst/doLast block, then it is configuration
+   // code and will get executed in the configuration stage,
+   doLast {
+      String current = version.toString()
+      ++version.minor
+
+      String newVersion = version.toString()
+      logger.quiet "Incrementing minor project version: $current -> $newVersion"
+
+      ant.propertyfile(file: versionfile) {
+         entry(key: 'minor', type: 'int', operation: '+', value: 1)
+      }
    }
 }
 
