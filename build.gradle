@@ -147,7 +147,7 @@ jar {
 
 // creates the wrapper
 task wrapper (type: Wrapper) {
-   gradleVersion = '2.8'
+   gradleVersion = '3.2'
 }
 
 // a custom task that makes a release version of the build
