@@ -1,5 +1,6 @@
 import dsl.ProjectVersion
 import dsl.ReleaseVersionTask
+import dsl.IncrementMajorVersionListener
 
 //apply plugin: 'idea'
 // activates groovy code
@@ -37,29 +38,6 @@ dependencies {
    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.1'
    testCompile ('junit:junit:4.8.2')
 }
-
-// the class ProjectVersion - gets used below
-/* class ProjectVersion {
-   Integer major
-   Integer minor
-   Boolean release
-
-   ProjectVersion (Integer major, Integer minor, Boolean release) {
-      this.major = major
-      this.minor = minor
-      this.release = release;
-   }
-
-   ProjectVersion (Integer major, Integer minor) {
-      this(major, minor, Boolean.FALSE)
-   }
-
-   // this method needs to be defined
-   @Override
-   String toString () {
-      "$major.$minor${release ? '':'-SNAPSHOT'}"
-   }
-} */
 
 // define a method readVersion that returns ProjectVersion object
 ProjectVersion readVersion () {
@@ -197,8 +175,6 @@ task releaseVersion {
       println "first in releaseVersions"
    }
 
-   println "doing something in the middle"
-
    // actions - get done at task execution phase, only if the inputs
    // and outputs are not up to date
    doLast {
@@ -211,16 +187,6 @@ task releaseVersion {
 
 // a test task - shows that dependsOn is a method that can be used
 // in the task's configuration phase to config a task's dependency
-task doNothing {
-   group = 'my-own-group'
-   description = 'messing around'
-   // you can also specify the dependsOn through a method invocations
-   dependsOn (['releaseVersion', 'time'])
-
-   doLast {
-      println 'funky-com-a-dean'
-   }
-}
 
 // not using this, but shows how to external properties
 task disable {
@@ -235,24 +201,6 @@ task disable {
    }
 }
 
-
-// this is now moved to buildSrc
-/*class ReleaseVersionTask extends DefaultTask {
-   @Input Boolean release
-   @OutputFile File destFile
-
-   ReleaseVersionTask () {
-      group = 'versioning'
-      description = 'Makes project a release version'
-   }
-   @TaskAction
-   void start () {
-      project.version.release = true
-      ant.propertyfile(file: destFile) {
-         entry (key: 'release', type: 'string', operation: '=', value: 'true')
-      }
-   }
-}*/
 
 // create a task that uses the custom task,
 // the input to the task is type
@@ -298,6 +246,10 @@ task incrementMajorVersion {
    }
 }
 
+task release {
+   println 'Sending to prod machine'
+}
+
 task incrementMinorVersion {
    group = 'versioning'
    description = 'Increments project minor version'
@@ -317,6 +269,25 @@ task incrementMinorVersion {
       }
    }
 }
+
+// an example of a life cycle event hook, this task will
+// examine the build graph, and if the 'release' task is part of the
+// build graph, it will set the release flag to true in the version file
+gradle.taskGraph.whenReady {
+   TaskExecutionGraph graph ->
+      if (graph.hasTask(release)) {
+         if (!version.release) {
+            version.release = true
+            ant.propertyfile (file: versionfile) {
+               entry (key: 'release', type: 'string', operation: '=', value: 'true')
+            }
+         }
+      }
+}
+
+// hook the taskgraph listener up
+IncrementMajorVersionListener major = new IncrementMajorVersionListener()
+gradle.taskGraph.addTaskExecutionGraphListener(major);
 
 // non-conventional directory structure -> tell gradle via configuration
 /* sourceSets {
