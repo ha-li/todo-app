@@ -4,7 +4,7 @@ import dsl.IncrementMajorVersionListener
 
 //apply plugin: 'idea'
 // activates groovy code
-apply plugin: 'groovy'
+//apply plugin: 'groovy'
 apply plugin: 'java'
 
 // add support for war, this will also bring in the java plugin
@@ -26,18 +26,55 @@ ext {
    // define a property in the external space that holds the version propertes
    versionfile = file ('version.properties')
    // source dir for gradle custom classes used here
-   srcDirName = 'src/main/groovy'
+   // srcDirName = 'src/main/groovy'
 }
 
+// declare a custom configuration named cargo.
+// this syntax says...get me the configurations closure
+// and to that, i'm going to add a cargo configuration
+// that will not be visible outside of this project
+configurations {
+   cargo {  // we define a cargo configuration using a closure
+      description = 'Classpath for Cargo Ant tasks.'
+      // make this visible only to this project, used
+      // if our project is a multi-module project
+      visible = false
+   }
+   // we have defined a cargo configuration, now we can
+   // use it
+}
+
+
+
+// the dependencies configuration. think of a project configuration
+// as a grouping or a namesspace -- dependencies go in the
+// dependencies configuration
 dependencies {
    // define the dependencies
-   compile gradleApi()
-   compile localGroovy()
+   //compile gradleApi()
+   //compile localGroovy()
    providedCompile 'javax.servlet:servlet-api:2.5'
    runtime 'javax.servlet:jstl:1.1.2'
    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.1'
    testCompile ('junit:junit:4.8.2')
+
+   // here we make use of the cargo configuration define in
+   // the configurations configuration (see above)
+   cargo 'org.codehaus.cargo:cargo-core-uberjar:1.3.1'
+   cargo ('org.codehaus.cargo:cargo-ant:1.3.1') {
+      // excludes do not include version since gradle does not
+      // allow you to exclude a particular version
+
+      //exclude group:'xml-apis', module:'xml-apis'
+      //this will exclude all transitives,
+      // if you do this, then you will need to explicitly
+      // declare all the required dependencies
+      transitive = false
+   }
+   //cargo 'xml-apis:xml-apis:2.0.2'
 }
+
+
 
 // define a method readVersion that returns ProjectVersion object
 ProjectVersion readVersion () {
@@ -67,7 +104,15 @@ task loadVersion {
 // sourceCompatibility = 1.7
 
 repositories {
-    mavenCentral()
+   // the local maven repo @ $HOME/.m2/repository
+   mavenLocal()
+   // maven central
+   mavenCentral()
+   // a company maven repo, eg
+   maven {
+      name 'A made up maven repository @ url'
+      url = 'http://some/non/existent/maven/repo'
+   }
 }
 
 
@@ -288,6 +333,61 @@ gradle.taskGraph.whenReady {
 // hook the taskgraph listener up
 IncrementMajorVersionListener major = new IncrementMajorVersionListener()
 gradle.taskGraph.addTaskExecutionGraphListener(major);
+
+buildDir = './build'
+
+task deployToLocalTomcat {
+   // this is a broken task -- not working
+   doLast {
+      //get the 'cargo' configuration as a file tree
+      FileTree cargoDeps = configurations.getByName('cargo').asFileTree
+      ant.taskdef (resource: 'cargo.tasks', classpath: cargoDeps.asPath)
+
+      ant.cargo (containerId: 'tomcat7x', action: 'run', output: "$buildDir/output.log") {
+         configuration {
+            deployable (type: 'war', file: 'todo-app-12.10.war')
+         }
+
+         zipUrlInstaller (installUrl: 'http://archive.apache.org/dist/tomcat/tomcat-7/v7.0.32/bin/apache-tomcat-7.0.32.zip')
+      }
+   }
+}
+
+task printConfigurations {
+   doLast {
+      for(Map.Entry<String, Configuration> entry : configurations.getAsMap().entrySet() ) {
+         println 'key: ' + entry.key + ', value: ' + entry.value.name
+      }
+   }
+}
+
+// tell compile to fail if there are jar conflicts
+configurations.compile.resolutionStrategy {
+   failOnVersionConflict()
+}
+
+// tell compile to fail if there are jar conflicts
+// in the cargo configuration. run gradle dependencies to see
+configurations.cargo.resolutionStrategy {
+   failOnVersionConflict()
+}
+
+
+// prints the dependency where they are stored by gradle
+task printDependencies {
+   doLast {
+      configurations.getByName('cargo').each {
+         dependency ->
+            println dependency.canonicalPath
+      }
+
+      println 'compiles'
+      configurations.getByName('compile').each {
+         dependency ->
+            println dependency.canonicalPath
+      }
+   }
+}
 
 // non-conventional directory structure -> tell gradle via configuration
 /* sourceSets {
