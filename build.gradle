@@ -372,6 +372,13 @@ configurations.cargo.resolutionStrategy {
    failOnVersionConflict()
 }
 
+/*
+// this forces a resolution strategy to use 1.3.0
+configurations.cargo.resolutionStrategy {
+   force 'org.codehaus.cargo:cargo-ant:1.3.0'
+}
+*/
+
 
 // prints the dependency where they are stored by gradle
 task printDependencies {
